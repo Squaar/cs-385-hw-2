@@ -9,8 +9,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/types.h>
 #include <time.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #define BOOL int
 #define TRUE 1
@@ -87,11 +88,11 @@ int main(int argc, char** argv){
 		dup2(pipe2[WRITE], STDOUT);
 
 		char *sort[2] = {"sort", "-nr"};
-		//execvp(sort[0], sort);
+		execvp(sort[0], sort);
 
 		//exec shouldn't return
-		//printf("Error sorting!\n");
-		//exit(-1);
+		printf("Error sorting!\n");
+		exit(-1);
 	}
 	else{ //PARENT PROCESS
 		close(pipe1[READ]);
@@ -102,13 +103,33 @@ int main(int argc, char** argv){
 		else
 			srand(randSeed);
 
-		printf("in parent\n");
-		int i;
+		
+		char buffer[256] = "";
+		printf("%s\n======\n", buffer);
+
+		int i;		
 		for(i=0; i<nWorkers; i++){
 			int random = rand() % (sleepMax-sleepMin) + sleepMin;
-			printf("%i\n", random);
-			//sprintf(pipe1[WRITE], "%i\n", rand() % (sleepMax-sleepMin) + sleepMin);
+			//printf("%i\n", random);
+			sprintf(buffer + strlen(buffer), "%i\n", random);
 		}
+		printf("%s\n", buffer);
+		write(pipe1[WRITE], buffer, sizeof(buffer));
+
+		close(pipe1[WRITE]);
+		
+		int *status;
+		pid_t pid2 = wait(status);
+
+		//if child didn't exit normally
+		if(pid2 == -1 || !WIFEXITED(status) || WEXITSTATUS(status)){
+			printf("Error in child!\n");
+			exit(-1);
+		}
+		
+		//READ FROM SORTED NUMBERS HERE		
+
+		close(pipe2[READ]);
 	}
 
 
