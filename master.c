@@ -5,6 +5,7 @@
 * MASTER
 */
 
+#include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -74,24 +75,31 @@ int main(int argc, char** argv){
 	int	pipe1[2]; //list of numbers from parent to child
 	int pipe2[2]; //list of sorted numbers from child to parent
 
+	if(pipe(pipe1) || pipe(pipe2)){
+		perror("Error creating pipes: ");
+		exit(-1);
+	}
+
 	pid_t pid = fork();
 
 	if(pid < 0){
-		printf("Error forking!\n");
+		perror("Error forking: ");
 		exit(-1);
 	}
-	if(pid ==0){ //CHILD PROCESS
+	if(pid == 0){ //CHILD PROCESS
 		close(pipe1[WRITE]);
 		close(pipe2[READ]);
 
 		dup2(pipe1[READ], STDIN);
 		dup2(pipe2[WRITE], STDOUT);
 
-		char *sort[2] = {"sort", "-nr"};
-		execvp(sort[0], sort);
+		close(pipe1[READ]);
+		close(pipe2[WRITE]);
+
+		execlp("sort", "-nr", NULL);
 
 		//exec shouldn't return
-		printf("Error sorting!\n");
+		perror("Error sorting: ");
 		exit(-1);
 	}
 	else{ //PARENT PROCESS
@@ -103,33 +111,48 @@ int main(int argc, char** argv){
 		else
 			srand(randSeed);
 
-		
-		char buffer[256] = "";
-		printf("%s\n======\n", buffer);
+		char outBuffer[256] = "";
 
 		int i;		
 		for(i=0; i<nWorkers; i++){
 			int random = rand() % (sleepMax-sleepMin) + sleepMin;
-			//printf("%i\n", random);
-			sprintf(buffer + strlen(buffer), "%i\n", random);
+			if(i != nWorkers-1)
+				sprintf(outBuffer + strlen(outBuffer), "%i\n", random);
+			else
+				sprintf(outBuffer + strlen(outBuffer), "%i", random);
 		}
-		printf("%s\n", buffer);
-		write(pipe1[WRITE], buffer, sizeof(buffer));
+		printf("%s\n", outBuffer);
+		write(pipe1[WRITE], outBuffer, sizeof(outBuffer));
+		printf("writeBytes: %i\n", sizeof(outBuffer));
 
 		close(pipe1[WRITE]);
 		
-		int *status;
+		int *status = 0;
 		pid_t pid2 = wait(status);
 
 		//if child didn't exit normally
 		if(pid2 == -1 || !WIFEXITED(status) || WEXITSTATUS(status)){
-			printf("Error in child!\n");
+			//printf("pid2: %i\n", pid2);
+			//printf("WIFEXITED: %i\n", WIFEXITED(status));
+			//printf("WEXITSTATUS: %i\n", WEXITSTATUS(status));
+			perror("Error in child: ");
 			exit(-1);
 		}
 		
-		//READ FROM SORTED NUMBERS HERE		
+		//READ FROM SORTED NUMBERS HERE
+		char inBuffer[256];
+		size_t nbytes = sizeof(outBuffer);
+		ssize_t readBytes = read(pipe2[READ], inBuffer, nbytes);
+		printf("readBytes: %i\n", readBytes);
+		
+		if(readBytes == -1){
+			printf("Error reading from pipe!");
+			exit(-1);
+		}
 
 		close(pipe2[READ]);
+
+		printf("========\n%s\n", inBuffer);
 	}
 
 
