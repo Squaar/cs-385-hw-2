@@ -5,6 +5,8 @@
 * MASTER
 */
 
+#include "message.h"
+
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -13,6 +15,8 @@
 #include <time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
 
 #define BOOL int
 #define TRUE 1
@@ -103,16 +107,17 @@ int main(int argc, char** argv){
 		exit(-1);
 	}
 	else{ //PARENT PROCESS
+
 		close(pipe1[READ]);
 		close(pipe2[WRITE]);
-
+	
 		if(randSeed == 0)
 			srand(time(NULL));
 		else
 			srand(randSeed);
-
+	
 		char outBuffer[256] = "";
-
+	
 		int i;		
 		for(i=0; i<nWorkers; i++){
 			float random = (rand()/(float) RAND_MAX) * (sleepMax-sleepMin) + sleepMin;
@@ -121,40 +126,98 @@ int main(int argc, char** argv){
 			else
 				sprintf(outBuffer + strlen(outBuffer), "%f", random);
 		}
-
+	
 		printf("%s\n", outBuffer);
 		write(pipe1[WRITE], outBuffer, strlen(outBuffer));
-
+	
 		close(pipe1[WRITE]);
 		
 		int *status = 0;
 		pid_t pid2 = wait(status);
-
+	
 		//if child didn't exit normally
 		if(pid2 == -1 || !WIFEXITED(status) || WEXITSTATUS(status)){
 			perror("Error in child: ");
 			exit(-1);
 		}
 		
-		//READ FROM SORTED NUMBERS HERE
 		size_t nbytes = strlen(outBuffer);
 		char inBuffer[nbytes];
 		ssize_t readBytes = read(pipe2[READ], inBuffer, nbytes);
-
+	
 		if(readBytes == -1){
-			printf("Error reading from pipe!");
+			printf("Error reading from pipe!\n");
 			exit(-1);
 		}
-
+	
 		close(pipe2[READ]);
-
+	
 		inBuffer[strlen(outBuffer)] = '\0';
+	
+		printf("========\n%s\n", inBuffer);
 
-		printf("========\n");
-		printf("%s\n", inBuffer);
-	}
+		int numToks = 0;
+		char *sleepTimes[nWorkers];
+		char *tok = strtok(inBuffer, "\n");
 
+		while(tok != NULL){
+			sleepTimes[numToks] = tok;
+			tok = strtok(NULL, "\n");
+			numToks++;
+		}
 
+		sleepTimes[numToks] = NULL;
+
+		//=============================== PART 2 ===============================
+		
+		int msgQ = msgget(ftok("master.c", 'M'), IPC_CREAT | 00660);
+		if(msgQ == -1){
+			perror("msgget failed: ");
+			exit(-1);
+		}
+		
+		for(i=0; i<nWorkers; i++){ //fork off nWorkers workers
+			pid = fork();
+			if(pid < 0){
+				perror("Error forking: ");
+				exit(-1);
+			}
+			if(pid == 0){ //CHILD PROCESS
+				char workerID[4];
+				sprintf(workerID, "%i", i);
+
+				char *shmID = "shmID";
+				char *semID = "semID";
+
+				execlp("./worker", "./worker", workerID, argv[1], sleepTimes[i], msgQ, shmID, semID, NULL);
+
+				perror("Error in worker");
+				exit(-1);
+			}
+		}
+		for(i=0; i<nWorkers; i++){ //read nWorkers messages
+			struct message msg;
+			msgrcv(msgQ, &msg, sizeof(struct message) - sizeof(long), 5, 0);
+			printf("message recieved: %s\n", msg.msg);
+		}
+		for(i=0; i<nWorkers; i++){ //wait for workers
+			int *status = 0;
+            pid_t pid2 = wait(status);
+        
+            //if child didn't exit normally
+            if(pid2 == -1 || !WIFEXITED(status) || WEXITSTATUS(status)){
+            	perror("Error in worker: ");
+            	exit(-1);
+            }
+		}
+		
+		//remove message queue
+		if(msgctl(msgQ, IPC_RMID, NULL)){
+			perror("Error removing message queue: ");
+			exit(-1);
+		}
+		
+	} //END PARENT
 	exit(0);	
 }
 
