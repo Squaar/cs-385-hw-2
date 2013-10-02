@@ -122,8 +122,6 @@ int main(int argc, char** argv){
 				sprintf(outBuffer + strlen(outBuffer), "%f", random);
 		}
 
-		
-
 		printf("%s\n", outBuffer);
 		write(pipe1[WRITE], outBuffer, strlen(outBuffer));
 
@@ -149,6 +147,8 @@ int main(int argc, char** argv){
 		}
 
 		close(pipe2[READ]);
+
+		inBuffer[strlen(outBuffer)] = '\0';
 
 		printf("========\n");
 		printf("%s\n", inBuffer);
