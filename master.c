@@ -80,14 +80,14 @@ int main(int argc, char** argv){
 	int pipe2[2]; //list of sorted numbers from child to parent
 
 	if(pipe(pipe1) || pipe(pipe2)){
-		perror("Error creating pipes: ");
+		perror("Error creating pipes");
 		exit(-1);
 	}
 
 	pid_t pid = fork();
 
 	if(pid < 0){
-		perror("Error forking: ");
+		perror("Error forking");
 		exit(-1);
 	}
 	if(pid == 0){ //CHILD PROCESS
@@ -103,7 +103,7 @@ int main(int argc, char** argv){
 		execlp("sort", "sort", "-gr", NULL);
    
 		//exec shouldn't return
-		perror("Error sorting: ");
+		perror("Error sorting");
 		exit(-1);
 	}
 	else{ //PARENT PROCESS
@@ -137,7 +137,7 @@ int main(int argc, char** argv){
 	
 		//if child didn't exit normally
 		if(pid2 == -1 || !WIFEXITED(status) || WEXITSTATUS(status)){
-			perror("Error in child: ");
+			perror("Error in child");
 			exit(-1);
 		}
 		
@@ -170,7 +170,11 @@ int main(int argc, char** argv){
 
 		//=============================== PART 2 ===============================
 		
-		int msgQ = msgget(ftok("master.c", 'M'), IPC_CREAT | 00660);
+		char workerPath[1024];
+		getcwd(workerPath, sizeof(workerPath));
+		strcat(workerPath, "/worker");
+
+		int msgQ = msgget(ftok(workerPath, 'M'), IPC_CREAT | 00600);
 		if(msgQ == -1){
 			perror("msgget failed: ");
 			exit(-1);
@@ -179,17 +183,25 @@ int main(int argc, char** argv){
 		for(i=0; i<nWorkers; i++){ //fork off nWorkers workers
 			pid = fork();
 			if(pid < 0){
-				perror("Error forking: ");
+				perror("Error forking");
 				exit(-1);
 			}
 			if(pid == 0){ //CHILD PROCESS
 				char workerID[4];
 				sprintf(workerID, "%i", i);
 
+				char numBuffers[4];
+				sprintf(numBuffers, "%i", nBuffers);
+
+				char msgQID[9];
+				sprintf(msgQID, "%i", msgQ);
+
 				char *shmID = "shmID";
 				char *semID = "semID";
 
-				execlp("./worker", "./worker", workerID, argv[1], sleepTimes[i], msgQ, shmID, semID, NULL);
+				printf("%s\n", msgQID);
+
+				execlp(workerPath, "worker", workerID, numBuffers, sleepTimes[i], msgQID, shmID, semID, NULL);
 
 				perror("Error in worker");
 				exit(-1);
@@ -206,14 +218,14 @@ int main(int argc, char** argv){
         
             //if child didn't exit normally
             if(pid2 == -1 || !WIFEXITED(status) || WEXITSTATUS(status)){
-            	perror("Error in worker: ");
+            	perror("Error in worker");
             	exit(-1);
             }
 		}
 		
 		//remove message queue
 		if(msgctl(msgQ, IPC_RMID, NULL)){
-			perror("Error removing message queue: ");
+			perror("Error removing message queue");
 			exit(-1);
 		}
 		
