@@ -35,8 +35,8 @@ int main(int argc, char** argv){
 	
 	int nBuffers = str2int(argv[1]);
 	int nWorkers = str2int(argv[2]);
-	int sleepMin = str2int(argv[3]);
-	int sleepMax = str2int(argv[4]);
+	float sleepMin = str2int(argv[3]);
+	float sleepMax = str2int(argv[4]);
 	int randSeed = 0;
 	BOOL lock = FALSE;
 	
@@ -96,8 +96,8 @@ int main(int argc, char** argv){
 		close(pipe1[READ]);
 		close(pipe2[WRITE]);
 
-		execlp("sort", "-nr", NULL);
-
+		execlp("sort", "sort", "-gr", NULL);
+   
 		//exec shouldn't return
 		perror("Error sorting: ");
 		exit(-1);
@@ -115,15 +115,17 @@ int main(int argc, char** argv){
 
 		int i;		
 		for(i=0; i<nWorkers; i++){
-			int random = rand() % (sleepMax-sleepMin) + sleepMin;
+			float random = (rand()/(float) RAND_MAX) * (sleepMax-sleepMin) + sleepMin;
 			if(i != nWorkers-1)
-				sprintf(outBuffer + strlen(outBuffer), "%i\n", random);
+				sprintf(outBuffer + strlen(outBuffer), "%f\n", random);
 			else
-				sprintf(outBuffer + strlen(outBuffer), "%i", random);
+				sprintf(outBuffer + strlen(outBuffer), "%f", random);
 		}
+
+		
+
 		printf("%s\n", outBuffer);
-		write(pipe1[WRITE], outBuffer, sizeof(outBuffer));
-		printf("writeBytes: %i\n", sizeof(outBuffer));
+		write(pipe1[WRITE], outBuffer, strlen(outBuffer));
 
 		close(pipe1[WRITE]);
 		
@@ -132,19 +134,15 @@ int main(int argc, char** argv){
 
 		//if child didn't exit normally
 		if(pid2 == -1 || !WIFEXITED(status) || WEXITSTATUS(status)){
-			//printf("pid2: %i\n", pid2);
-			//printf("WIFEXITED: %i\n", WIFEXITED(status));
-			//printf("WEXITSTATUS: %i\n", WEXITSTATUS(status));
 			perror("Error in child: ");
 			exit(-1);
 		}
 		
 		//READ FROM SORTED NUMBERS HERE
-		char inBuffer[256];
-		size_t nbytes = sizeof(outBuffer);
+		size_t nbytes = strlen(outBuffer);
+		char inBuffer[nbytes];
 		ssize_t readBytes = read(pipe2[READ], inBuffer, nbytes);
-		printf("readBytes: %i\n", readBytes);
-		
+
 		if(readBytes == -1){
 			printf("Error reading from pipe!");
 			exit(-1);
@@ -152,7 +150,8 @@ int main(int argc, char** argv){
 
 		close(pipe2[READ]);
 
-		printf("========\n%s\n", inBuffer);
+		printf("========\n");
+		printf("%s\n", inBuffer);
 	}
 
 

@@ -1,5 +1,7 @@
 master
 worker
+*~
+*.swp
 
 # Object files
 *.o
