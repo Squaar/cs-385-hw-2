@@ -9,4 +9,6 @@ master: master.c message.h
 worker: worker.c message.h
 	gcc  -Wall worker.c -o worker
 
-
+gdb: master.c worker.c message.h
+	gcc -g -Wall master.c -o master
+	gcc -g -Wall worker.c -o worker

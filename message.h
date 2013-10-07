@@ -1,4 +1,4 @@
 struct message{
 	long mtype;
-	char *msg;
+	char msg[256];
 } message;

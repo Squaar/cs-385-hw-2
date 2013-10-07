@@ -36,7 +36,6 @@ int main(int argc, char **argv){
 	strcat(workerPath, "/worker");
 
 	//printf(ftok(workerPath, 'M'), msgID);
-	//using id instead of key! bad!
 	int msgQ = msgget(ftok(workerPath, 'M'), 00600);
 	if(msgQ == -1){
 		perror("Error connecting to message queue");
@@ -45,15 +44,16 @@ int main(int argc, char **argv){
 
 	printf("Worker %i successfully  started.\n", workerID);
 
-	char msgBuffer[256] = "";
-	sprintf(msgBuffer, "workerID: %i, sleepTime: %f.", workerID, sleepTime);
+	struct message msg;
+	msg.mtype = 5;
+	sprintf(msg.msg, "WorkerID: %i, sleepTime: %f.", workerID, sleepTime);
 
-	struct message msg = {5, msgBuffer};
 	if(msgsnd(msgQ, &msg, sizeof(struct message) - sizeof(long), 0) == -1){
 		perror("Error sending message");
 		exit(-1);
 	}
-
+	
+	printf("Worker %i finished.\n", workerID);
 	exit(0);
 }
 

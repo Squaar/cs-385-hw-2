@@ -59,8 +59,7 @@ int main(int argc, char** argv){
 				"and sleepMax must be greater than sleepMin!\n");
 		exit(-1);
 	}
-
-	if(argc == 7){
+	else if(argc == 7){
 		if(!strcmp(argv[6], "-lock") || !strcmp(argv[6], "lock"));
 			lock = TRUE;
 		randSeed = str2int(argv[5]);
@@ -199,18 +198,24 @@ int main(int argc, char** argv){
 				char *shmID = "shmID";
 				char *semID = "semID";
 
-				printf("%s\n", msgQID);
-
 				execlp(workerPath, "worker", workerID, numBuffers, sleepTimes[i], msgQID, shmID, semID, NULL);
 
 				perror("Error in worker");
 				exit(-1);
 			}
 		}
+
+		struct message messages[nWorkers];
+
 		for(i=0; i<nWorkers; i++){ //read nWorkers messages
 			struct message msg;
-			msgrcv(msgQ, &msg, sizeof(struct message) - sizeof(long), 5, 0);
-			printf("message recieved: %s\n", msg.msg);
+			//msg.msg = malloc(sizeof(struct message)-sizeof(long));
+			if(msgrcv(msgQ, &msg, sizeof(msg.msg), 0, 0) == -1){
+				perror("Error recieving message");
+				exit(-1);
+			}
+			messages[i] = msg;
+			//printf("Message recieved: %s\n", msg.msg);
 		}
 		for(i=0; i<nWorkers; i++){ //wait for workers
 			int *status = 0;
@@ -222,12 +227,17 @@ int main(int argc, char** argv){
             	exit(-1);
             }
 		}
+		for(i=0; i<nWorkers; i++){ //print messages
+			printf("Message: %s\n", messages[i].msg);
+		}
 		
 		//remove message queue
 		if(msgctl(msgQ, IPC_RMID, NULL)){
 			perror("Error removing message queue");
 			exit(-1);
 		}
+
+	//============================ PART 3 ================================
 		
 	} //END PARENT
 	exit(0);	
