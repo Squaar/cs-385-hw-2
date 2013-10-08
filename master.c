@@ -17,6 +17,7 @@
 #include <sys/wait.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
+#include <sys/shm.h>
 
 #define BOOL int
 #define TRUE 1
@@ -167,11 +168,37 @@ int main(int argc, char** argv){
 
 		sleepTimes[numToks] = NULL;
 
-		//=============================== PART 2 ===============================
-		
 		char workerPath[1024];
 		getcwd(workerPath, sizeof(workerPath));
 		strcat(workerPath, "/worker");
+
+		//=============================== PART 3 ==============================
+		int shmid = shmget(ftok(workerPath, 'N'), sizeof(int[nWorkers]), 00644|IPC_CREAT);
+		if(shmid == -1){
+			perror("Error creating shared memory ");
+			exit(-1);
+		}
+
+		int *shm = shmat(shmid, (void *)0, 0);
+		if(shm == (int *) -1){
+			perror("Error attatching to shared memory ");
+			exit(-1);
+		}
+
+		printf("Successfully connected to shared memory.\n");
+
+		if(shmdt(shm) == -1){
+			perror("Error disconnecting from shared memory ");
+			exit(-1);
+		}
+		if(shmctl(shmid, IPC_RMID, NULL) == -1){
+			perror("Error removing shared memory ");
+			exit(-1);
+		}
+
+		//=============================== PART 2 ===============================
+		
+		
 
 		int msgQ = msgget(ftok(workerPath, 'M'), IPC_CREAT | 00600);
 		if(msgQ == -1){
@@ -205,7 +232,7 @@ int main(int argc, char** argv){
 			}
 		}
 
-		struct message messages[nWorkers];
+		//struct message messages[nWorkers];
 
 		for(i=0; i<nWorkers; i++){ //read nWorkers messages
 			struct message msg;
@@ -214,8 +241,8 @@ int main(int argc, char** argv){
 				perror("Error recieving message");
 				exit(-1);
 			}
-			messages[i] = msg;
-			//printf("Message recieved: %s\n", msg.msg);
+			//messages[i] = msg;
+			printf("Message recieved: %s\n", msg.msg);
 		}
 		for(i=0; i<nWorkers; i++){ //wait for workers
 			int *status = 0;
@@ -227,9 +254,9 @@ int main(int argc, char** argv){
             	exit(-1);
             }
 		}
-		for(i=0; i<nWorkers; i++){ //print messages
-			printf("Message: %s\n", messages[i].msg);
-		}
+		//for(i=0; i<nWorkers; i++){ //print messages
+			//printf("Message: %s\n", messages[i].msg);
+		//}
 		
 		//remove message queue
 		if(msgctl(msgQ, IPC_RMID, NULL)){
@@ -237,7 +264,7 @@ int main(int argc, char** argv){
 			exit(-1);
 		}
 
-	//============================ PART 3 ================================
+	//============================================================
 		
 	} //END PARENT
 	exit(0);	
