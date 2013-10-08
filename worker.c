@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 int str2int(char *str);
+float str2float(char *str);
 
 int main(int argc, char **argv){
 	if(argc < 6 || argc > 7){
@@ -24,7 +25,7 @@ int main(int argc, char **argv){
 	
 	int workerID = str2int(argv[1]);
 	//int nBuffers = str2int(argv[2]);
-	float sleepTime = str2int(argv[3]);
+	float sleepTime = str2float(argv[3]);
 	//int msgID = str2int(argv[4]);
 	//int shmID = str2int(argv[5]);
 	//int semID;
@@ -58,6 +59,11 @@ int main(int argc, char **argv){
 }
 
 int str2int(char *str){
-        return strtol(str, 0, 10); 
+	return strtol(str, 0, 10); 
+}
+
+float str2float(char *str){
+	char *end;
+	return strtof(str, &end);
 }
 
