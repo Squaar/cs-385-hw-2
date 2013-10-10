@@ -25,7 +25,7 @@ int main(int argc, char **argv){
 	}
 	
 	int workerID = str2int(argv[1]);
-	//int nBuffers = str2int(argv[2]);
+	int nBuffers = str2int(argv[2]);
 	float sleepTime = str2float(argv[3]);
 	int msgID = str2int(argv[4]);
 	int shmID = str2int(argv[5]);
@@ -44,19 +44,18 @@ int main(int argc, char **argv){
 		exit(-1);
 	}
 
-	printf("Worker %i successfully  started.\n", workerID);
-
 	struct message msg;
 	msg.mtype = 1;
 	msg.workerID = workerID;
-	sprintf(msg.msg, "WorkerID: %i, sleepTime: %f.", workerID, sleepTime);
+	msg.sleepTime = sleepTime;
+	//sprintf(msg.msg, "WorkerID: %i, sleepTime: %f.", workerID, sleepTime);
 
 	if(msgsnd(msgQ, &msg, sizeof(struct message) - sizeof(long), 0) == -1){
 		perror("Error sending message");
 		exit(-1);
 	}
 	
-	//===================== PART 3 ============================
+	//===================== PART 3/4 ============================
 
 	int *shm = shmat(shmID, (void *)0, 0);
 	if(shm == (int *) -1){
@@ -64,10 +63,55 @@ int main(int argc, char **argv){
 		exit(-1);
 	}
 
-	shm[workerID] = workerID;
+	int i;
+	int currentBuffer = workerID;
+	for(i=0; i<nBuffers; i++){
+		int j;
+
+		for(j=0; j<2; j++){ //read twice
+			int read = shm[currentBuffer];
+
+			if(usleep(sleepTime) == -1){
+				perror("Error sleeping ");
+				exit(-1);
+			}
+
+			//check if changed
+			if(shm[currentBuffer] != read){
+				msg.mtype = 3;
+				msg.workerID = workerID;
+				msg.changedBuffer = currentBuffer;
+				msg.initVal = read;
+				msg.newVal = shm[currentBuffer];
+				if(msgsnd(msgQ, &msg, sizeof(struct message), 0) == -1){
+					perror("Error sending message ");
+					exit(-1);
+				}
+			}
+	
+			currentBuffer += workerID;
+			if(currentBuffer >= nBuffers)
+				currentBuffer -= nBuffers;
+		}
+
+		//write
+		int read = shm[currentBuffer];
+
+		if(usleep(sleepTime) == -1){
+			perror("Error sleeping ");
+			exit(-1);
+		}
+		
+		shm[currentBuffer] = read + (1<<(workerID -1));
+
+		currentBuffer += workerID;
+		if(currentBuffer >= nBuffers)
+			currentBuffer -= nBuffers;
+
+	}
 
 	msg.mtype = 2;
-	sprintf(msg.msg, "Cleanup");
+	//sprintf(msg.msg, "Cleanup");
 	msg.workerID = workerID;
 	if(msgsnd(msgQ, &msg, sizeof(struct message), 0) == -1){
 		perror("Error sending message ");

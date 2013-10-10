@@ -227,8 +227,9 @@ int main(int argc, char** argv){
 				exit(-1);
 			}
 		}
-
-		for(i=0; i<nWorkers*2; i++){ //read nWorkers messages
+		
+		int unfinishedWorkers = nWorkers;
+		while(unfinishedWorkers){ //read nWorkers messages
 			struct message msg;
 			//msg.msg = malloc(sizeof(struct message)-sizeof(long));
 			if(msgrcv(msgQ, &msg, sizeof(struct message), 0, 0) == -1){
@@ -236,12 +237,13 @@ int main(int argc, char** argv){
 				exit(-1);
 			}
 			
-			if(msg.mtype == 1)
-				printf("Message recieved: %s\n", msg.msg);
-			else if(msg.mtype ==2){
+			if(msg.mtype == 1) //startup message
+				printf("Startup message recieved from worker %i with sleep time %i.\n", msg.workerID, msg.sleepTime);
+			else if(msg.mtype ==2){ //cleanup message
 				int *status = 0;
 				pid_t pid2 = wait(status);
 				printf("Recieved cleanup message from worker %i\n", msg.workerID);
+				unfinishedWorkers--;
         	
 				//if child didn't exit normally
 				if(pid2 == -1 || !WIFEXITED(status) || WEXITSTATUS(status)){
@@ -249,20 +251,14 @@ int main(int argc, char** argv){
 					exit(-1);
 				}
 			}
+			else if(msg.mtype == 3){ //read error
+				printf("Read error message recieved: WorkerID: %i, changed buffer: %i, initial value: %i, new value: %i\n",
+							   	msg.workerID, msg.changedBuffer, msg.initVal, msg.newVal);
+			}
 		}
 		
-		/*for(i=0; i<nWorkers; i++){ //wait for workers
-			int *status = 0;
-            pid_t pid2 = wait(status);
-        
-            //if child didn't exit normally
-            if(pid2 == -1 || !WIFEXITED(status) || WEXITSTATUS(status)){
-            	perror("Error in worker");
-            	exit(-1);
-            }
-		}*/
-
-		printf("\nAll workers accounted for, contents of shared memory: \n");
+		printf("\nExpected value for buffers: %i\n", (1<<nWorkers)-1);
+		printf("All workers accounted for, contents of shared memory: \n");
 		for(i=0; i<nBuffers; i++)
 			printf("%i\n", shm[i]);
 

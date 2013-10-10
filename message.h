@@ -1,9 +1,14 @@
 struct message{
 	long mtype;
-	char msg[256];
+	//char msg[256];
 	int workerID;
+	int sleepTime;
+	int changedBuffer;
+	int initVal;
+	int newVal;
 } message;
 
 //mtypes:
 //1-string message
 //2-cleanup
+//3-read error
