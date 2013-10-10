@@ -173,6 +173,7 @@ int main(int argc, char** argv){
 		strcat(workerPath, "/worker");
 
 		//=============================== PART 3 ==============================
+
 		int shmid = shmget(ftok(workerPath, 'N'), sizeof(int[nWorkers]), 00644|IPC_CREAT);
 		if(shmid == -1){
 			perror("Error creating shared memory ");
@@ -187,14 +188,7 @@ int main(int argc, char** argv){
 
 		printf("Successfully connected to shared memory.\n");
 
-		if(shmdt(shm) == -1){
-			perror("Error disconnecting from shared memory ");
-			exit(-1);
-		}
-		if(shmctl(shmid, IPC_RMID, NULL) == -1){
-			perror("Error removing shared memory ");
-			exit(-1);
-		}
+		memset(shm, 0, nWorkers*sizeof(shm[0]));
 
 		//=============================== PART 2 ===============================
 		
@@ -213,16 +207,18 @@ int main(int argc, char** argv){
 				exit(-1);
 			}
 			if(pid == 0){ //CHILD PROCESS
-				char workerID[4];
+				char workerID[10];
 				sprintf(workerID, "%i", i);
 
-				char numBuffers[4];
+				char numBuffers[10];
 				sprintf(numBuffers, "%i", nBuffers);
 
-				char msgQID[9];
+				char msgQID[10];
 				sprintf(msgQID, "%i", msgQ);
 
-				char *shmID = "shmID";
+				char shmID[10];
+				sprintf(shmID, "%i", shmid);
+
 				char *semID = "semID";
 
 				execlp(workerPath, "worker", workerID, numBuffers, sleepTimes[i], msgQID, shmID, semID, NULL);
@@ -232,19 +228,30 @@ int main(int argc, char** argv){
 			}
 		}
 
-		//struct message messages[nWorkers];
-
-		for(i=0; i<nWorkers; i++){ //read nWorkers messages
+		for(i=0; i<nWorkers*2; i++){ //read nWorkers messages
 			struct message msg;
 			//msg.msg = malloc(sizeof(struct message)-sizeof(long));
-			if(msgrcv(msgQ, &msg, sizeof(msg.msg), 0, 0) == -1){
+			if(msgrcv(msgQ, &msg, sizeof(struct message), 0, 0) == -1){
 				perror("Error recieving message");
 				exit(-1);
 			}
-			//messages[i] = msg;
-			printf("Message recieved: %s\n", msg.msg);
+			
+			if(msg.mtype == 1)
+				printf("Message recieved: %s\n", msg.msg);
+			else if(msg.mtype ==2){
+				int *status = 0;
+				pid_t pid2 = wait(status);
+				printf("Recieved cleanup message from worker %i\n", msg.workerID);
+        	
+				//if child didn't exit normally
+				if(pid2 == -1 || !WIFEXITED(status) || WEXITSTATUS(status)){
+           	 		perror("Error in worker");
+					exit(-1);
+				}
+			}
 		}
-		for(i=0; i<nWorkers; i++){ //wait for workers
+		
+		/*for(i=0; i<nWorkers; i++){ //wait for workers
 			int *status = 0;
             pid_t pid2 = wait(status);
         
@@ -253,14 +260,25 @@ int main(int argc, char** argv){
             	perror("Error in worker");
             	exit(-1);
             }
-		}
-		//for(i=0; i<nWorkers; i++){ //print messages
-			//printf("Message: %s\n", messages[i].msg);
-		//}
-		
+		}*/
+
+		printf("\nAll workers accounted for, contents of shared memory: \n");
+		for(i=0; i<nWorkers; i++)
+			printf("%i\n", shm[i]);
+
+
 		//remove message queue
 		if(msgctl(msgQ, IPC_RMID, NULL)){
 			perror("Error removing message queue");
+			exit(-1);
+		}
+
+		if(shmdt(shm) == -1){
+			perror("Error disconnecting from shared memory ");
+			exit(-1);
+		}
+		if(shmctl(shmid, IPC_RMID, NULL) == -1){
+			perror("Error removing shared memory ");
 			exit(-1);
 		}
 
