@@ -174,7 +174,7 @@ int main(int argc, char** argv){
 
 		//=============================== PART 3 ==============================
 
-		int shmid = shmget(ftok(workerPath, 'N'), sizeof(int[nWorkers]), 00644|IPC_CREAT);
+		int shmid = shmget(ftok(workerPath, 'N'), sizeof(int[nBuffers]), 00644|IPC_CREAT);
 		if(shmid == -1){
 			perror("Error creating shared memory ");
 			exit(-1);
@@ -208,7 +208,7 @@ int main(int argc, char** argv){
 			}
 			if(pid == 0){ //CHILD PROCESS
 				char workerID[10];
-				sprintf(workerID, "%i", i);
+				sprintf(workerID, "%i", i+1);
 
 				char numBuffers[10];
 				sprintf(numBuffers, "%i", nBuffers);
@@ -263,7 +263,7 @@ int main(int argc, char** argv){
 		}*/
 
 		printf("\nAll workers accounted for, contents of shared memory: \n");
-		for(i=0; i<nWorkers; i++)
+		for(i=0; i<nBuffers; i++)
 			printf("%i\n", shm[i]);
 
 
