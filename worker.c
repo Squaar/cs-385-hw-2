@@ -71,7 +71,7 @@ int main(int argc, char **argv){
 		for(j=0; j<2; j++){ //read twice
 			int read = shm[currentBuffer];
 
-			if(usleep(sleepTime) == -1){
+			if(usleep(sleepTime*100000) == -1){
 				perror("Error sleeping ");
 				exit(-1);
 			}
@@ -97,12 +97,12 @@ int main(int argc, char **argv){
 		//write
 		int read = shm[currentBuffer];
 
-		if(usleep(sleepTime) == -1){
+		if(usleep(sleepTime*100000) == -1){
 			perror("Error sleeping ");
 			exit(-1);
 		}
 		
-		shm[currentBuffer] = read + (1<<(workerID -1));
+		shm[currentBuffer] = read | (1<<(workerID -1));
 
 		currentBuffer += workerID;
 		if(currentBuffer >= nBuffers)

@@ -186,7 +186,7 @@ int main(int argc, char** argv){
 			exit(-1);
 		}
 
-		printf("Successfully connected to shared memory.\n");
+		printf("\nSuccessfully connected to shared memory.\n");
 
 		memset(shm, 0, nWorkers*sizeof(shm[0]));
 
@@ -257,11 +257,22 @@ int main(int argc, char** argv){
 			}
 		}
 		
-		printf("\nExpected value for buffers: %i\n", (1<<nWorkers)-1);
+		int expected = (1<<nWorkers)-1;
+		printf("\nExpected value for buffers: %i\n", expected);
 		printf("All workers accounted for, contents of shared memory: \n");
 		for(i=0; i<nBuffers; i++)
 			printf("%i\n", shm[i]);
 
+		//check which bits are missing
+		for(i=0; i<nBuffers; i++){
+			int missing = shm[i] ^ expected;
+			int j;
+			for(j=0; j<sizeof(int)*8; j++){
+				if(missing & 1<<j){
+					printf("Buffer %i is missing bit %i!\n", i, j+1);
+				}
+			}
+		}
 
 		//remove message queue
 		if(msgctl(msgQ, IPC_RMID, NULL)){
@@ -278,8 +289,6 @@ int main(int argc, char** argv){
 			exit(-1);
 		}
 
-	//============================================================
-		
 	} //END PARENT
 	exit(0);	
 }
