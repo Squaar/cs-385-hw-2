@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/shm.h>
+#include <sys/sem.h>
 
 int str2int(char *str);
 float str2float(char *str);

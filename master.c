@@ -18,6 +18,7 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <sys/shm.h>
+#include <sys/sem.h>
 
 #define BOOL int
 #define TRUE 1
@@ -190,6 +191,13 @@ int main(int argc, char** argv){
 
 		memset(shm, 0, nWorkers*sizeof(shm[0]));
 
+		//=============================== PART 5 ===============================
+		int semID;
+		if(lock){
+			semID = semget(ftok(workerPath, 'O'), nBuffers, 00644|IPC_CREAT);
+
+		}
+
 		//=============================== PART 2 ===============================
 		
 		
@@ -287,6 +295,12 @@ int main(int argc, char** argv){
 		if(shmctl(shmid, IPC_RMID, NULL) == -1){
 			perror("Error removing shared memory ");
 			exit(-1);
+		}
+		if(lock){
+			if(semctl(semID, 0, IPC_RMID) == -1){
+				perror("Error removing semaphores ");
+				exit(-1);
+			}
 		}
 
 	} //END PARENT
