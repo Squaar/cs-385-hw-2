@@ -21,8 +21,8 @@
 #define TRUE 1
 #define FALSE 0
 
-int str2int(char *str);
-float str2float(char *str);
+int str2int(char *str); //convert a string to int, wrapper for strtol
+float str2float(char *str);	//convert a string to float, wrapper for strtof
 
 int main(int argc, char **argv){
 	if(argc < 6 || argc > 7){
@@ -37,22 +37,19 @@ int main(int argc, char **argv){
 	int shmID = str2int(argv[5]);
 	int semID;
 	BOOL lock = FALSE;
-	if(argc == 7){
-		printf("lock on\n");
+	if(argc == 7){ //if a semID is given
 		semID = str2int(argv[6]);
 		lock = TRUE;
 	}
-	
-	char workerPath[1024];
-	getcwd(workerPath, sizeof(workerPath));
-	strcat(workerPath, "/worker");
 
+	//connect to message queue
 	int msgQ = msgID;
 	if(msgQ == -1){
 		perror("Error connecting to message queue");
 		exit(-1);
 	}
 
+	//send startup message
 	struct message msg;
 	msg.mtype = 1;
 	msg.workerID = workerID;
@@ -63,6 +60,7 @@ int main(int argc, char **argv){
 		exit(-1);
 	}
 
+	//attatch to shared memory
 	int *shm = shmat(shmID, (void *)0, 0);
 	if(shm == (int *) -1){
 		perror("Error attatching to shared memory");
@@ -71,8 +69,8 @@ int main(int argc, char **argv){
 	
 	//===================== PART 5 ==============================
 	
+	//use semaphores
 	if(lock){
-
 		struct sembuf sembuffer;
 
 		int i;
@@ -162,6 +160,7 @@ int main(int argc, char **argv){
 
 	//===================== PART 3/4 ============================
 
+	//dont use semaphores
 	else{	
 		int i;
 		int currentBuffer = workerID;
@@ -188,7 +187,7 @@ int main(int argc, char **argv){
 						exit(-1);
 					}
 				}
-		
+				
 				currentBuffer += workerID;
 				if(currentBuffer >= nBuffers)
 					currentBuffer -= nBuffers;

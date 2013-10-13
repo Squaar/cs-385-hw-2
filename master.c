@@ -34,8 +34,8 @@ union semun{
 	unsigned short *array;
 } arg;
 
-int isPrime(int n);
-int str2int(char *str);
+int isPrime(int n); //check if number is prime
+int str2int(char *str); //convert a string to int, wrapper for strtol
 
 int main(int argc, char** argv){
 	printf("Matt Dumford - mdumfo2\n");
@@ -52,26 +52,33 @@ int main(int argc, char** argv){
 	int randSeed = 0;
 	BOOL lock = FALSE;
 	
+	// check nBuffers
 	if(!isPrime(nBuffers) || nBuffers > 32){
 		printf("nBuffers must be prime and < 32!\n");
 		exit(-1);
 	}
 	
+	//check nWorkers
 	if(nWorkers > nBuffers){
 		printf("nWorkers must be less than nBuffers!\n");
 		exit(-1);
 	}
 
+	//check sleepmin and sleepmax
 	if(sleepMin<0 || sleepMax<0 || sleepMin > sleepMax){
 		printf("sleepMin and sleepMax must be greater than 0, \n"\
 				"and sleepMax must be greater than sleepMin!\n");
 		exit(-1);
 	}
+
+	//check if locked with no seed
 	else if(argc == 7){
 		if(!strcmp(argv[6], "-lock") || !strcmp(argv[6], "lock"));
 			lock = TRUE;
 		randSeed = str2int(argv[5]);
 	}
+
+	//check if given a seed and locked
 	else if(argc == 6){
 		if(!strcmp(argv[5], "-lock") || !strcmp(argv[5], "lock"))
 			lock = TRUE;
@@ -125,6 +132,7 @@ int main(int argc, char** argv){
 	
 		char outBuffer[256] = "";
 	
+		//print random numbers to a buffer to be written to pipe
 		int i;		
 		for(i=0; i<nWorkers; i++){
 			float random = (rand()/(float) RAND_MAX) * (sleepMax-sleepMin) + sleepMin;
@@ -148,6 +156,7 @@ int main(int argc, char** argv){
 			exit(-1);
 		}
 		
+		//read in from pipe
 		size_t nbytes = strlen(outBuffer);
 		char inBuffer[nbytes];
 		ssize_t readBytes = read(pipe2[READ], inBuffer, nbytes);
@@ -163,6 +172,7 @@ int main(int argc, char** argv){
 	
 		printf("========\n%s\n", inBuffer);
 
+		//get numbers back out of string
 		int numToks = 0;
 		char *sleepTimes[nWorkers];
 		char *tok = strtok(inBuffer, "\n");
@@ -175,6 +185,7 @@ int main(int argc, char** argv){
 
 		sleepTimes[numToks] = NULL;
 
+		//create path of worker executable for ftok
 		char workerPath[1024];
 		getcwd(workerPath, sizeof(workerPath));
 		strcat(workerPath, "/worker");
@@ -198,8 +209,11 @@ int main(int argc, char** argv){
 		memset(shm, 0, nWorkers*sizeof(shm[0]));
 
 		//=============================== PART 5 ===============================
+
+		//create semaphores
 		int semid;
 		if(lock){
+			printf("nBuffers: %i\n", nBuffers);
 			if((semid = semget(ftok(workerPath, 'O'), nBuffers, 00644|IPC_CREAT)) == -1){
 				perror("Error creating semaphores ");
 				exit(-1);
@@ -207,6 +221,7 @@ int main(int argc, char** argv){
 
 			arg.val = 1;
 			
+			//initialize semaphores to 1
 			for(i=0; i<nBuffers; i++){
 				if(semctl(semid, i, SETVAL, arg) == -1){
 					perror("Error initializing semaphore ");
@@ -218,7 +233,7 @@ int main(int argc, char** argv){
 		//=============================== PART 2 ===============================
 		
 		
-
+		//create message queue
 		int msgQ = msgget(ftok(workerPath, 'M'), IPC_CREAT | 00600);
 		if(msgQ == -1){
 			perror("msgget failed: ");
@@ -257,10 +272,10 @@ int main(int argc, char** argv){
 			}
 		}
 		
+		//read messages
 		int unfinishedWorkers = nWorkers;
 		while(unfinishedWorkers){ //read nWorkers messages
 			struct message msg;
-			//msg.msg = malloc(sizeof(struct message)-sizeof(long));
 			if(msgrcv(msgQ, &msg, sizeof(struct message), 0, 0) == -1){
 				perror("Error recieving message");
 				exit(-1);
@@ -308,15 +323,20 @@ int main(int argc, char** argv){
 			perror("Error removing message queue");
 			exit(-1);
 		}
-
+		
+		//disconnect from shared memory
 		if(shmdt(shm) == -1){
 			perror("Error disconnecting from shared memory ");
 			exit(-1);
 		}
+
+		//remove shared memory
 		if(shmctl(shmid, IPC_RMID, NULL) == -1){
 			perror("Error removing shared memory ");
 			exit(-1);
 		}
+
+		//remove semaphores
 		if(lock){
 			if(semctl(semid, 0, IPC_RMID) == -1){
 				perror("Error removing semaphores ");
