@@ -28,6 +28,12 @@
 #define STDIN 0
 #define STDOUT 1
 
+union semun{
+	int val;
+	struct semid_ds *buf;
+	unsigned short *array;
+} arg;
+
 int isPrime(int n);
 int str2int(char *str);
 
@@ -192,10 +198,21 @@ int main(int argc, char** argv){
 		memset(shm, 0, nWorkers*sizeof(shm[0]));
 
 		//=============================== PART 5 ===============================
-		int semID;
+		int semid;
 		if(lock){
-			semID = semget(ftok(workerPath, 'O'), nBuffers, 00644|IPC_CREAT);
+			if((semid = semget(ftok(workerPath, 'O'), nBuffers, 00644|IPC_CREAT)) == -1){
+				perror("Error creating semaphores ");
+				exit(-1);
+			}
 
+			arg.val = 1;
+			
+			for(i=0; i<nBuffers; i++){
+				if(semctl(semid, i, SETVAL, arg) == -1){
+					perror("Error initializing semaphore ");
+					exit(-1);
+				}
+			}
 		}
 
 		//=============================== PART 2 ===============================
@@ -227,9 +244,13 @@ int main(int argc, char** argv){
 				char shmID[10];
 				sprintf(shmID, "%i", shmid);
 
-				char *semID = "semID";
-
-				execlp(workerPath, "worker", workerID, numBuffers, sleepTimes[i], msgQID, shmID, semID, NULL);
+				if(lock){
+					char semID[10];
+					sprintf(semID, "%i", semid);
+					execlp(workerPath, "worker", workerID, numBuffers, sleepTimes[i], msgQID, shmID, semID, NULL);
+				}
+				else
+					execlp(workerPath, "worker", workerID, numBuffers, sleepTimes[i], msgQID, shmID, NULL);
 
 				perror("Error in worker");
 				exit(-1);
@@ -297,7 +318,7 @@ int main(int argc, char** argv){
 			exit(-1);
 		}
 		if(lock){
-			if(semctl(semID, 0, IPC_RMID) == -1){
+			if(semctl(semid, 0, IPC_RMID) == -1){
 				perror("Error removing semaphores ");
 				exit(-1);
 			}
