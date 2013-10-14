@@ -21,10 +21,11 @@
 #define TRUE 1
 #define FALSE 0
 
+float strtof(const char *str, char **endptr); //only need this declaration on bert...?
 int str2int(char *str); //convert a string to int, wrapper for strtol
 float str2float(char *str);	//convert a string to float, wrapper for strtof
-void wait(int sem, int semID, int nBuffers);
-void signal(int sem, int semID, int nBuffers);
+void wait(int sem, int semID, int nBuffers); //reserves resources for a semaphore
+void signal(int sem, int semID, int nBuffers); //frees resources for a semaphore
 
 int main(int argc, char **argv){
 	if(argc < 6 || argc > 7){
@@ -73,24 +74,12 @@ int main(int argc, char **argv){
 	
 	//use semaphores
 	if(lock){
-		//struct sembuf sembuffer;
-
 		int i;
 		int currentBuffer = workerID;
 		for(i=0; i<nBuffers; i++){
 			int j;
 	
 			for(j=0; j<2; j++){ //read twice
-
-				/*sembuffer.sem_num = currentBuffer;
-				sembuffer.sem_op = -1;
-				sembuffer.sem_flg = SEM_UNDO;
-
-				if(semop(semID, &sembuffer, nBuffers) == -1){
-					perror("Error in semop");
-					exit(-1);
-				}*/
-
 				wait(currentBuffer, semID, nBuffers);
 		
 				int read = shm[currentBuffer];
@@ -113,15 +102,6 @@ int main(int argc, char **argv){
 					}
 				}
 
-				/*sembuffer.sem_num = currentBuffer;
-				sembuffer.sem_op = 1;
-				sembuffer.sem_flg = SEM_UNDO;
-
-				if(semop(semID, &sembuffer, nBuffers) == -1){
-					perror("Error in semop");
-					exit(-1);
-				}*/
-
 				signal(currentBuffer, semID, nBuffers);
 		
 				currentBuffer += workerID;
@@ -130,15 +110,6 @@ int main(int argc, char **argv){
 			}
 	
 			//write
-			/*sembuffer.sem_num = currentBuffer;
-			sembuffer.sem_op = -1;
-			sembuffer.sem_flg = SEM_UNDO;
-
-			if(semop(semID, &sembuffer, nBuffers) == -1){
-					perror("Error in semop");
-					exit(-1);
-			}*/
-
 			wait(currentBuffer, semID, nBuffers);
 
 			int read = shm[currentBuffer];
@@ -149,15 +120,6 @@ int main(int argc, char **argv){
 			}
 			
 			shm[currentBuffer] = read | (1<<(workerID -1));
-
-			/*sembuffer.sem_num = currentBuffer;
-			sembuffer.sem_op = 1;
-			sembuffer.sem_flg = SEM_UNDO;
-
-			if(semop(semID, &sembuffer, nBuffers) == -1){
-				perror("Error in semop");
-				exit(-1);
-			}*/
 
 			signal(currentBuffer, semID, nBuffers);
 	
