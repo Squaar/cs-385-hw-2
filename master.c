@@ -28,11 +28,15 @@
 #define STDIN 0
 #define STDOUT 1
 
+#if defined(_GNU_LIBRARY_) && !defined(_SEM_SEMUN_UNDEFINED_)
+#else
 union semun{
 	int val;
 	struct semid_ds *buf;
 	unsigned short *array;
+	struct seminfo *_buf;
 } arg;
+#endif
 
 int isPrime(int n); //check if number is prime
 int str2int(char *str); //convert a string to int, wrapper for strtol
@@ -213,7 +217,6 @@ int main(int argc, char** argv){
 		//create semaphores
 		int semid;
 		if(lock){
-			printf("nBuffers: %i\n", nBuffers);
 			if((semid = semget(ftok(workerPath, 'O'), nBuffers, 00644|IPC_CREAT)) == -1){
 				perror("Error creating semaphores ");
 				exit(-1);
@@ -282,7 +285,7 @@ int main(int argc, char** argv){
 			}
 			
 			if(msg.mtype == 1) //startup message
-				printf("Startup message recieved from worker %i with sleep time %i.\n", msg.workerID, msg.sleepTime);
+				printf("Startup message recieved from worker %i with sleep time %f.\n", msg.workerID, msg.sleepTime);
 			else if(msg.mtype ==2){ //cleanup message
 				int *status = 0;
 				pid_t pid2 = wait(status);

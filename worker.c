@@ -23,6 +23,8 @@
 
 int str2int(char *str); //convert a string to int, wrapper for strtol
 float str2float(char *str);	//convert a string to float, wrapper for strtof
+void wait(int sem, int semID, int nBuffers);
+void signal(int sem, int semID, int nBuffers);
 
 int main(int argc, char **argv){
 	if(argc < 6 || argc > 7){
@@ -71,7 +73,7 @@ int main(int argc, char **argv){
 	
 	//use semaphores
 	if(lock){
-		struct sembuf sembuffer;
+		//struct sembuf sembuffer;
 
 		int i;
 		int currentBuffer = workerID;
@@ -80,18 +82,20 @@ int main(int argc, char **argv){
 	
 			for(j=0; j<2; j++){ //read twice
 
-				sembuffer.sem_num = currentBuffer;
+				/*sembuffer.sem_num = currentBuffer;
 				sembuffer.sem_op = -1;
 				sembuffer.sem_flg = SEM_UNDO;
 
 				if(semop(semID, &sembuffer, nBuffers) == -1){
 					perror("Error in semop");
 					exit(-1);
-				}
+				}*/
+
+				wait(currentBuffer, semID, nBuffers);
 		
 				int read = shm[currentBuffer];
 	
-				if(usleep(sleepTime*100000) == -1){
+				if(usleep(sleepTime*1000000) == -1){
 					perror("Error sleeping");
 					exit(-1);
 				}
@@ -109,14 +113,16 @@ int main(int argc, char **argv){
 					}
 				}
 
-				sembuffer.sem_num = currentBuffer;
+				/*sembuffer.sem_num = currentBuffer;
 				sembuffer.sem_op = 1;
 				sembuffer.sem_flg = SEM_UNDO;
 
 				if(semop(semID, &sembuffer, nBuffers) == -1){
 					perror("Error in semop");
 					exit(-1);
-				}
+				}*/
+
+				signal(currentBuffer, semID, nBuffers);
 		
 				currentBuffer += workerID;
 				if(currentBuffer >= nBuffers)
@@ -124,32 +130,36 @@ int main(int argc, char **argv){
 			}
 	
 			//write
-			sembuffer.sem_num = currentBuffer;
+			/*sembuffer.sem_num = currentBuffer;
 			sembuffer.sem_op = -1;
 			sembuffer.sem_flg = SEM_UNDO;
 
 			if(semop(semID, &sembuffer, nBuffers) == -1){
 					perror("Error in semop");
 					exit(-1);
-				}
+			}*/
+
+			wait(currentBuffer, semID, nBuffers);
 
 			int read = shm[currentBuffer];
 	
-			if(usleep(sleepTime*100000) == -1){
+			if(usleep(sleepTime*1000000) == -1){
 				perror("Error sleeping");
 				exit(-1);
 			}
 			
 			shm[currentBuffer] = read | (1<<(workerID -1));
 
-			sembuffer.sem_num = currentBuffer;
+			/*sembuffer.sem_num = currentBuffer;
 			sembuffer.sem_op = 1;
 			sembuffer.sem_flg = SEM_UNDO;
 
 			if(semop(semID, &sembuffer, nBuffers) == -1){
 				perror("Error in semop");
 				exit(-1);
-			}
+			}*/
+
+			signal(currentBuffer, semID, nBuffers);
 	
 			currentBuffer += workerID;
 			if(currentBuffer >= nBuffers)
@@ -170,7 +180,7 @@ int main(int argc, char **argv){
 			for(j=0; j<2; j++){ //read twice
 				int read = shm[currentBuffer];
 	
-				if(usleep(sleepTime*100000) == -1){
+				if(usleep(sleepTime*1000000) == -1){
 					perror("Error sleeping");
 					exit(-1);
 				}
@@ -196,7 +206,7 @@ int main(int argc, char **argv){
 			//write
 			int read = shm[currentBuffer];
 	
-			if(usleep(sleepTime*100000) == -1){
+			if(usleep(sleepTime*1000000) == -1){
 				perror("Error sleeping");
 				exit(-1);
 			}
@@ -219,6 +229,30 @@ int main(int argc, char **argv){
 	}
 
 	exit(0);
+}
+
+void wait(int sem, int semID, int nBuffers){
+	struct sembuf sembuffer;
+	sembuffer.sem_num = sem;
+	sembuffer.sem_op = -1;
+	sembuffer.sem_flg = SEM_UNDO;
+
+	if(semop(semID, &sembuffer, 1) == -1){
+		perror("Error in semop");
+		exit(-1);
+	}
+}
+
+void signal(int sem, int semID, int nBuffers){
+	struct sembuf sembuffer;
+	sembuffer.sem_num = sem;
+	sembuffer.sem_op = 1;
+	sembuffer.sem_flg = SEM_UNDO;
+
+	if(semop(semID, &sembuffer, 1) == -1){
+		perror("Error in semop");
+		exit(-1);
+	}
 }
 
 int str2int(char *str){

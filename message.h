@@ -2,7 +2,7 @@ struct message{
 	long mtype;
 	//char msg[256];
 	int workerID;
-	int sleepTime;
+	float sleepTime;
 	int changedBuffer;
 	int initVal;
 	int newVal;
