@@ -1,5 +1,5 @@
 /*
-* Matt Dumford 
+* Matt Dumford - mdumford
 * mdumfo2@uic.edu
 * 
 * MASTER
@@ -210,8 +210,6 @@ int main(int argc, char** argv){
 			perror("Error attatching to shared memory ");
 			exit(-1);
 		}
-
-		printf("\nSuccessfully connected to shared memory.\n");
 
 		memset(shm, 0, nWorkers*sizeof(shm[0]));
 
