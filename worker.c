@@ -3,6 +3,9 @@
 * mdumfo2@uic.edu
 *
 * WORKER
+* 
+* Reads and writes from shared memory and reports errors to master.
+* Locks down shared memory with semaphores if lock is turned on.
 */
 
 #include "message.h"

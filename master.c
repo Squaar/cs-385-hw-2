@@ -3,6 +3,9 @@
 * mdumfo2@uic.edu
 * 
 * MASTER
+* 
+* Generates random numbers for wait times, forks off and executes workers and 
+* listens to message queue
 */
 
 #include "message.h"
